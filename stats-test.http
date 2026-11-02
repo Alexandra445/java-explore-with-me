@@ -1,0 +1,14 @@
+
+### 1. Отправляем информацию о посещении
+POST http://localhost:9090/hit
+Content-Type: application/json
+
+{
+  "app": "ewm-main-service",
+  "uri": "/events/1",
+  "ip": "192.0.2.1",
+  "timestamp": "2026-11-01 20:30:00"
+}
+
+### 2. Получаем статистику
+GET http://localhost:9090/stats?start=2026-11-01%2000:00:00&end=2026-11-01%2023:59:59&unique=false
