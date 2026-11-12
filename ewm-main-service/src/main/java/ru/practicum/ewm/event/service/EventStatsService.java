@@ -11,7 +11,6 @@ import ru.practicum.ewm.stats.dto.ViewStatsDto;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,10 +55,7 @@ public class EventStatsService {
 
         try {
             LocalDateTime end = LocalDateTime.now();
-            LocalDateTime start = published.stream()
-                    .map(Event::getPublishedOn)
-                    .min(Comparator.naturalOrder())
-                    .orElse(end.minusYears(1));
+            LocalDateTime start = RANKING_START;
 
             List<String> uris = published.size() > MAX_URIS_IN_REQUEST
                     ? null

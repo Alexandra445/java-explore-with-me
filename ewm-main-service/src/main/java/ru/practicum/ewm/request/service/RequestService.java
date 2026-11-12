@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -64,7 +65,7 @@ public class RequestService {
         }
 
         ParticipationRequest request = new ParticipationRequest();
-        request.setCreated(LocalDateTime.now());
+        request.setCreated(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS));
         request.setEvent(event);
         request.setRequester(requester);
 

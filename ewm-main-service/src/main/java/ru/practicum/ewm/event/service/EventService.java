@@ -56,11 +56,7 @@ public class EventService {
                 .orElseThrow(() -> new NotFoundException(
                         "Category with id=" + request.getCategory() + " was not found"));
 
-        if (request.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
-            throw new ConflictException(
-                    "Field: eventDate. Error: must be at least 2 hours from now. Value: "
-                            + request.getEventDate());
-        }
+        checkEventDate(request.getEventDate(), request.getEventDate(), 2);
 
         Event event = new Event();
         event.setTitle(request.getTitle());
@@ -120,15 +116,7 @@ public class EventService {
             throw new ConflictException("Only pending or canceled events can be changed");
         }
 
-        LocalDateTime resultDate = request.getEventDate() != null
-                ? request.getEventDate()
-                : event.getEventDate();
-
-        if (resultDate.isBefore(LocalDateTime.now().plusHours(2))) {
-            throw new ConflictException(
-                    "Field: eventDate. Error: must be at least 2 hours from now. Value: "
-                            + resultDate);
-        }
+        checkEventDate(request.getEventDate(), event.getEventDate(), 2);
 
         applyFields(event, request.getTitle(), request.getAnnotation(),
                 request.getDescription(), request.getCategory(), request.getEventDate(),
@@ -186,11 +174,8 @@ public class EventService {
                 .orElseThrow(() -> new NotFoundException(
                         "Event with id=" + eventId + " was not found"));
 
-        if (request.getEventDate() != null
-                && request.getEventDate().isBefore(LocalDateTime.now().plusHours(1))) {
-            throw new ConflictException(
-                    "Field: eventDate. Error: must be at least 1 hour from now. Value: "
-                            + request.getEventDate());
+        if (request.getEventDate() != null) {
+            checkEventDate(request.getEventDate(), event.getEventDate(), 1);
         }
 
         applyFields(event, request.getTitle(), request.getAnnotation(),
@@ -263,6 +248,21 @@ public class EventService {
         }
         if (requestModeration != null) {
             event.setRequestModeration(requestModeration);
+        }
+    }
+
+    private void checkEventDate(LocalDateTime requestDate, LocalDateTime currentDate, int hours) {
+        if (requestDate != null && requestDate.isBefore(LocalDateTime.now())) {
+            throw new BadRequestException(
+                    "Field: eventDate. Error: must be a future date. Value: " + requestDate);
+        }
+
+        LocalDateTime resultDate = requestDate != null ? requestDate : currentDate;
+
+        if (resultDate.isBefore(LocalDateTime.now().plusHours(hours))) {
+            throw new ConflictException(
+                    "Field: eventDate. Error: must be at least " + hours
+                            + " hours from now. Value: " + resultDate);
         }
     }
 
