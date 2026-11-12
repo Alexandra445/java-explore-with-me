@@ -14,6 +14,7 @@ import ru.practicum.ewm.request.model.RequestStatus;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collection;
 
 public final class EventSpecifications {
 
@@ -111,6 +112,10 @@ public final class EventSpecifications {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    public static Specification<Event> idIn(Collection<Long> ids) {
+        return (root, query, cb) -> root.get("id").in(ids);
     }
 
     private static void fetchAssociations(Root<Event> root, CriteriaQuery<?> query) {

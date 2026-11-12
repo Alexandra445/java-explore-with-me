@@ -44,6 +44,7 @@ public class EventService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final ParticipationRequestRepository requestRepository;
+    private final EventStatsService statsService;
 
     @Transactional
     public EventFullDto createEvent(Long userId, NewEventDto request) {
@@ -91,8 +92,13 @@ public class EventService {
         Map<Long, Long> confirmed = getConfirmedCounts(
                 events.stream().map(Event::getId).toList());
 
+        Map<Long, Long> views = statsService.getViews(events);
+
         return events.stream()
-                .map(e -> toShortDto(e, confirmed.getOrDefault(e.getId(), 0L), 0L))
+                .map(e -> toShortDto(
+                        e,
+                        confirmed.getOrDefault(e.getId(), 0L),
+                        views.getOrDefault(e.getId(), 0L)))
                 .toList();
     }
 
@@ -101,7 +107,7 @@ public class EventService {
                 .orElseThrow(() -> new NotFoundException(
                         "Event with id=" + eventId + " was not found"));
 
-        return toFullDto(event, getConfirmedCount(eventId), 0L);
+        return toFullDto(event, getConfirmedCount(eventId), getViews(event));
     }
 
     @Transactional
@@ -114,11 +120,14 @@ public class EventService {
             throw new ConflictException("Only pending or canceled events can be changed");
         }
 
-        if (request.getEventDate() != null
-                && request.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
+        LocalDateTime resultDate = request.getEventDate() != null
+                ? request.getEventDate()
+                : event.getEventDate();
+
+        if (resultDate.isBefore(LocalDateTime.now().plusHours(2))) {
             throw new ConflictException(
                     "Field: eventDate. Error: must be at least 2 hours from now. Value: "
-                            + request.getEventDate());
+                            + resultDate);
         }
 
         applyFields(event, request.getTitle(), request.getAnnotation(),
@@ -135,7 +144,9 @@ public class EventService {
             }
         }
 
-        return toFullDto(eventRepository.save(event), getConfirmedCount(eventId), 0L);
+        Event saved = eventRepository.save(event);
+
+        return toFullDto(saved, getConfirmedCount(eventId), getViews(saved));
     }
 
     public List<EventFullDto> getAdminEvents(
@@ -159,8 +170,13 @@ public class EventService {
         Map<Long, Long> confirmed = getConfirmedCounts(
                 events.stream().map(Event::getId).toList());
 
+        Map<Long, Long> views = statsService.getViews(events);
+
         return events.stream()
-                .map(e -> toFullDto(e, confirmed.getOrDefault(e.getId(), 0L), 0L))
+                .map(e -> toFullDto(
+                        e,
+                        confirmed.getOrDefault(e.getId(), 0L),
+                        views.getOrDefault(e.getId(), 0L)))
                 .toList();
     }
 
@@ -210,7 +226,9 @@ public class EventService {
             }
         }
 
-        return toFullDto(eventRepository.save(event), getConfirmedCount(eventId), 0L);
+        Event saved = eventRepository.save(event);
+
+        return toFullDto(saved, getConfirmedCount(eventId), getViews(saved));
     }
 
     private void applyFields(Event event, String title, String annotation, String description,
@@ -246,6 +264,10 @@ public class EventService {
         if (requestModeration != null) {
             event.setRequestModeration(requestModeration);
         }
+    }
+
+    private long getViews(Event event) {
+        return statsService.getViews(List.of(event)).getOrDefault(event.getId(), 0L);
     }
 
     private long getConfirmedCount(Long eventId) {

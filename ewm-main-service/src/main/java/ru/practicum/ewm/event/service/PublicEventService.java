@@ -19,15 +19,19 @@ import ru.practicum.ewm.exception.BadRequestException;
 import ru.practicum.ewm.exception.NotFoundException;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.Page;
+import java.util.ArrayList;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PublicEventService {
 
+    private static final int CHUNK_SIZE = 200;
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
     private final EventStatsService statsService;
@@ -55,18 +59,9 @@ public class PublicEventService {
         Map<Long, Long> views;
 
         if (sort == EventSort.VIEWS) {
-            List<Event> all = eventRepository.findAll(spec, Sort.by("id"));
-            Map<Long, Long> allViews = statsService.getViews(all);
-
-            events = all.stream()
-                    .sorted(Comparator
-                            .comparing((Event e) -> allViews.getOrDefault(e.getId(), 0L),
-                                    Comparator.reverseOrder())
-                            .thenComparing(Event::getId))
-                    .skip(from)
-                    .limit(size)
-                    .toList();
-            views = allViews;
+            Map<Long, Long> ranking = statsService.getViewsRanking();
+            events = findOrderedByViews(spec, ranking, from, size);
+            views = ranking;
         } else {
             events = eventRepository.findAll(
                             spec,
@@ -100,5 +95,55 @@ public class PublicEventService {
                 .getOrDefault(eventId, 0L);
 
         return eventMapper.toFullDto(event, confirmed, views);
+    }
+
+
+    private List<Event> findOrderedByViews(
+            Specification<Event> spec, Map<Long, Long> ranking, int from, int size) {
+
+        int needed = from + size;
+        List<Event> ordered = new ArrayList<>();
+        List<Long> rankedIds = new ArrayList<>(ranking.keySet());
+
+        for (int i = 0; i < rankedIds.size() && ordered.size() < needed; i += CHUNK_SIZE) {
+            List<Long> chunk = rankedIds.subList(i, Math.min(i + CHUNK_SIZE, rankedIds.size()));
+
+            Map<Long, Event> found = eventRepository
+                    .findAll(spec.and(EventSpecifications.idIn(chunk)))
+                    .stream()
+                    .collect(Collectors.toMap(Event::getId, Function.identity()));
+
+            for (Long id : chunk) {
+                Event event = found.get(id);
+                if (event != null) {
+                    ordered.add(event);
+                }
+            }
+        }
+
+        if (ordered.size() < needed) {
+            int pageNumber = 0;
+            boolean hasNext = true;
+
+            while (ordered.size() < needed && hasNext) {
+                Page<Event> page = eventRepository.findAll(
+                        spec,
+                        OffsetPageRequest.of(pageNumber * CHUNK_SIZE, CHUNK_SIZE, Sort.by("id")));
+
+                for (Event event : page.getContent()) {
+                    if (!ranking.containsKey(event.getId())) {
+                        ordered.add(event);
+                    }
+                }
+
+                hasNext = page.hasNext();
+                pageNumber++;
+            }
+        }
+
+        return ordered.stream()
+                .skip(from)
+                .limit(size)
+                .toList();
     }
 }
