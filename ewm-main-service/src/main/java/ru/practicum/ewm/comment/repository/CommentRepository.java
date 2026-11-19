@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import ru.practicum.ewm.comment.model.Comment;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CommentRepository
         extends JpaRepository<Comment, Long>, JpaSpecificationExecutor<Comment> {
@@ -16,4 +17,7 @@ public interface CommentRepository
 
     @EntityGraph(attributePaths = {"author"})
     List<Comment> findAllByAuthorId(Long authorId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"author"})
+    Optional<Comment> findWithAuthorById(Long id);
 }

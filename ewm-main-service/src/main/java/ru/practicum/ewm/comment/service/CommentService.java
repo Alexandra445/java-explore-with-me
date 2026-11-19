@@ -57,25 +57,17 @@ public class CommentService {
 
     @Transactional
     public CommentDto updateComment(Long userId, Long commentId, NewCommentDto request) {
-        checkUserExists(userId);
-
-        Comment comment = getCommentOrThrow(commentId);
-        checkAuthor(comment, userId);
+        Comment comment = getOwnComment(userId, commentId);
 
         comment.setText(request.getText());
         comment.setUpdated(now());
 
-        return toDto(commentRepository.save(comment));
+        return toDto(comment);
     }
 
     @Transactional
     public void deleteComment(Long userId, Long commentId) {
-        checkUserExists(userId);
-
-        Comment comment = getCommentOrThrow(commentId);
-        checkAuthor(comment, userId);
-
-        commentRepository.delete(comment);
+        commentRepository.delete(getOwnComment(userId, commentId));
     }
 
     public List<CommentDto> getUserComments(Long userId, int from, int size) {
@@ -110,11 +102,7 @@ public class CommentService {
 
     @Transactional
     public void deleteCommentByAdmin(Long commentId) {
-        if (!commentRepository.existsById(commentId)) {
-            throw new NotFoundException("Comment with id=" + commentId + " was not found");
-        }
-
-        commentRepository.deleteById(commentId);
+        commentRepository.delete(getCommentOrThrow(commentId));
     }
 
     private void checkUserExists(Long userId) {
@@ -124,15 +112,20 @@ public class CommentService {
     }
 
     private Comment getCommentOrThrow(Long commentId) {
-        return commentRepository.findById(commentId)
+        return commentRepository.findWithAuthorById(commentId)
                 .orElseThrow(() -> new NotFoundException(
                         "Comment with id=" + commentId + " was not found"));
     }
 
-    private void checkAuthor(Comment comment, Long userId) {
+    private Comment getOwnComment(Long userId, Long commentId) {
+        Comment comment = getCommentOrThrow(commentId);
+
         if (!comment.getAuthor().getId().equals(userId)) {
+            checkUserExists(userId);
             throw new ConflictException("Only the author can change or delete the comment");
         }
+
+        return comment;
     }
 
     private LocalDateTime now() {
