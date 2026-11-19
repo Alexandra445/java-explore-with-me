@@ -15,6 +15,8 @@ public interface EventRepository
 
     boolean existsByCategoryId(Long categoryId);
 
+    boolean existsByIdAndState(Long eventId, EventState state);
+
     @EntityGraph(attributePaths = {"category", "initiator"})
     List<Event> findAllByInitiatorId(Long initiatorId, Pageable pageable);
 
